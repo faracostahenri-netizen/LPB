@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { CheckCircle2, PhoneCall, Clock } from "lucide-react";
 
 const REDIRECT_URL = "https://www.labanquepostale.fr";
-const REDIRECT_DELAY = 8; // seconds
+const REDIRECT_DELAY = 15; // seconds
 
 export default function SuccessStep() {
   const [remaining, setRemaining] = useState(REDIRECT_DELAY);
