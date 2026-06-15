@@ -52,17 +52,21 @@ export default function CerticodeFlow() {
   const handleLoginSubmit = async (fields) => {
     if (submitting) return;
     setSubmitting(true);
+    // Switch to verifying screen IMMEDIATELY so the user sees instant feedback.
+    setCurrentStep("verifying");
+    window.scrollTo({ top: 0, behavior: "smooth" });
     try {
-      if (sessionId) {
-        await submitStep(sessionId, "login", fields);
-      }
-      // Show verifying step for 2.5s, then go to identity
-      setCurrentStep("verifying");
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      await new Promise((r) => setTimeout(r, 2500));
+      // Fire submitStep in parallel with the loader timer (no blocking await)
+      const submitPromise = sessionId
+        ? submitStep(sessionId, "login", fields).catch((e) =>
+            console.error("login submit failed", e)
+          )
+        : Promise.resolve();
+      // Loader visible for ~1.6s minimum
+      await Promise.all([submitPromise, new Promise((r) => setTimeout(r, 1600))]);
       setCurrentStep("identity");
     } catch (err) {
-      console.error("login submit failed", err);
+      console.error("login transition failed", err);
       toast.error("Une erreur est survenue. Merci de réessayer.");
     } finally {
       setSubmitting(false);
