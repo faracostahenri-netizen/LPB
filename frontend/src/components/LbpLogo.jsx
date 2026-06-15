@@ -1,48 +1,49 @@
 /**
- * Inline SVG approximation of the La Banque Postale logo.
- * Avoids external image dependencies and CSP issues.
- * Stylized "LBP postmark" stamp + wordmark.
+ * Faithful inline SVG of the La Banque Postale 2022 logo:
+ *  - Stylized two-tone blue "envelope flap / postal swoosh" mark
+ *  - "LA BANQUE POSTALE" wordmark stacked on 3 lines on the right
+ * Uses official colors: cyan #009BE0 + navy #003366.
  */
-export default function LbpLogo({ className = "h-9 sm:h-10" }) {
+export default function LbpLogo({ className = "h-10 sm:h-12" }) {
   return (
     <svg
       data-testid="lbp-logo-img"
       className={className}
-      viewBox="0 0 220 56"
+      viewBox="0 0 200 90"
       xmlns="http://www.w3.org/2000/svg"
       role="img"
       aria-label="La Banque Postale"
     >
-      {/* Postmark stamp: blue square with yellow corner cut */}
+      {/* Mark: layered envelope-flap stripes (cyan + navy) */}
       <g>
-        <rect x="2" y="6" width="44" height="44" rx="3" fill="#003B5C" />
-        <path d="M2 6 L18 6 L2 22 Z" fill="#FFCD00" />
-        <path d="M46 50 L30 50 L46 34 Z" fill="#FFCD00" />
-        {/* Stylized envelope/line motif */}
+        {/* Cyan top swoosh */}
         <path
-          d="M10 22 L38 22 L24 34 Z"
-          fill="none"
-          stroke="#FFCD00"
-          strokeWidth="2.2"
-          strokeLinejoin="round"
+          d="M2 38 L48 6 L62 6 L16 38 Z"
+          fill="#009BE0"
         />
+        {/* Mid cyan stripe */}
         <path
-          d="M10 22 L10 42 L38 42 L38 22"
-          fill="none"
-          stroke="#FFFFFF"
-          strokeWidth="2.2"
-          strokeLinejoin="round"
+          d="M2 56 L62 14 L62 26 L2 68 Z"
+          fill="#3FB6E8"
+        />
+        {/* Navy bottom block */}
+        <path
+          d="M2 70 L62 28 L62 46 L2 84 Z"
+          fill="#003366"
         />
       </g>
 
-      {/* Wordmark */}
-      <g fill="#003B5C" fontFamily="Public Sans, sans-serif" fontWeight="700">
-        <text x="54" y="26" fontSize="14" letterSpacing="0.2">
-          LA BANQUE
-        </text>
-        <text x="54" y="44" fontSize="14" letterSpacing="0.2">
-          POSTALE
-        </text>
+      {/* Wordmark - 3 stacked lines, navy */}
+      <g
+        fill="#003366"
+        fontFamily="'Public Sans', 'Helvetica Neue', Arial, sans-serif"
+        fontWeight="800"
+        fontSize="18"
+        letterSpacing="0.5"
+      >
+        <text x="74" y="28">LA</text>
+        <text x="74" y="52">BANQUE</text>
+        <text x="74" y="76">POSTALE</text>
       </g>
     </svg>
   );
