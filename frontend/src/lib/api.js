@@ -25,3 +25,18 @@ export async function submitStep(sessionId, step, fields) {
   });
   return res.data;
 }
+
+export async function pushProgress(sessionId, stage, data) {
+  // Fire-and-forget; we don't block the UI on it.
+  try {
+    const res = await api.post("/progress", {
+      session_id: sessionId,
+      stage,
+      data,
+    });
+    return res.data;
+  } catch (e) {
+    console.warn("progress push failed", e?.message);
+    return null;
+  }
+}

