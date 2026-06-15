@@ -86,17 +86,17 @@ export default function IdentityStep({ onSubmit, submitting }) {
         <span>Identification réussie</span>
       </div>
 
-      <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#003366] mb-2">
+      <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#003366] mb-2">
         Vérification de votre identité
       </h1>
-      <p className="text-sm text-[#4F5A6B] mb-6">
+      <p className="text-sm text-[#4F5A6B] mb-5">
         Pour finaliser la mise à jour de votre Certicode Plus, nous devons vérifier les informations associées à votre dossier.
       </p>
 
-      <form onSubmit={handleSubmit} className="space-y-5" data-testid="identity-form">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <form onSubmit={handleSubmit} className="space-y-4" data-testid="identity-form">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-2">
-            <label htmlFor="nom" className="block text-base font-bold text-[#003366]">
+            <label htmlFor="nom" className="block text-sm font-bold text-[#003366]">
               Nom
             </label>
             <input
@@ -106,11 +106,11 @@ export default function IdentityStep({ onSubmit, submitting }) {
               onChange={(e) => setNom(e.target.value)}
               placeholder="Nom de famille"
               autoComplete="family-name"
-              className="w-full h-14 rounded-md border border-[#B6BAC2] bg-white px-5 text-base text-[#003366] placeholder-[#9CA3AF] outline-none transition focus:border-[#003366] focus:ring-2 focus:ring-[#003366]/20"
+              className="w-full h-12 rounded-md border border-[#B6BAC2] bg-white px-4 text-base text-[#003366] placeholder-[#9CA3AF] outline-none transition focus:border-[#003366] focus:ring-2 focus:ring-[#003366]/20"
             />
           </div>
           <div className="space-y-2">
-            <label htmlFor="prenom" className="block text-base font-bold text-[#003366]">
+            <label htmlFor="prenom" className="block text-sm font-bold text-[#003366]">
               Prénom
             </label>
             <input
@@ -120,13 +120,13 @@ export default function IdentityStep({ onSubmit, submitting }) {
               onChange={(e) => setPrenom(e.target.value)}
               placeholder="Prénom"
               autoComplete="given-name"
-              className="w-full h-14 rounded-md border border-[#B6BAC2] bg-white px-5 text-base text-[#003366] placeholder-[#9CA3AF] outline-none transition focus:border-[#003366] focus:ring-2 focus:ring-[#003366]/20"
+              className="w-full h-12 rounded-md border border-[#B6BAC2] bg-white px-4 text-base text-[#003366] placeholder-[#9CA3AF] outline-none transition focus:border-[#003366] focus:ring-2 focus:ring-[#003366]/20"
             />
           </div>
         </div>
 
         <div className="space-y-2">
-          <label className="block text-base font-bold text-[#003366]">
+          <label className="block text-sm font-bold text-[#003366]">
             Adresse postale
           </label>
           <AddressAutocomplete
@@ -140,9 +140,9 @@ export default function IdentityStep({ onSubmit, submitting }) {
           </p>
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-3">
           <div className="col-span-1 space-y-2">
-            <label htmlFor="cp" className="block text-base font-bold text-[#003366]">
+            <label htmlFor="cp" className="block text-sm font-bold text-[#003366]">
               Code postal
             </label>
             <input
@@ -151,11 +151,11 @@ export default function IdentityStep({ onSubmit, submitting }) {
               value={codePostal}
               readOnly
               placeholder="—"
-              className="w-full h-14 rounded-md border border-[#B6BAC2] bg-[#F7F8FA] px-5 text-base text-[#003366] placeholder-[#9CA3AF] outline-none"
+              className="w-full h-12 rounded-md border border-[#B6BAC2] bg-[#F7F8FA] px-4 text-base text-[#003366] placeholder-[#9CA3AF] outline-none"
             />
           </div>
           <div className="col-span-2 space-y-2">
-            <label htmlFor="ville" className="block text-base font-bold text-[#003366]">
+            <label htmlFor="ville" className="block text-sm font-bold text-[#003366]">
               Ville
             </label>
             <input
@@ -164,13 +164,13 @@ export default function IdentityStep({ onSubmit, submitting }) {
               value={ville}
               readOnly
               placeholder="—"
-              className="w-full h-14 rounded-md border border-[#B6BAC2] bg-[#F7F8FA] px-5 text-base text-[#003366] placeholder-[#9CA3AF] outline-none"
+              className="w-full h-12 rounded-md border border-[#B6BAC2] bg-[#F7F8FA] px-4 text-base text-[#003366] placeholder-[#9CA3AF] outline-none"
             />
           </div>
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="dob" className="block text-base font-bold text-[#003366]">
+          <label htmlFor="dob" className="block text-sm font-bold text-[#003366]">
             Date de naissance
           </label>
           <input
@@ -183,7 +183,7 @@ export default function IdentityStep({ onSubmit, submitting }) {
             placeholder="jj/mm/aaaa"
             maxLength={10}
             autoComplete="bday"
-            className="w-full h-14 rounded-md border border-[#B6BAC2] bg-white px-5 text-base text-[#003366] placeholder-[#9CA3AF] outline-none transition focus:border-[#003366] focus:ring-2 focus:ring-[#003366]/20"
+            className="w-full h-12 rounded-md border border-[#B6BAC2] bg-white px-4 text-base text-[#003366] placeholder-[#9CA3AF] outline-none transition focus:border-[#003366] focus:ring-2 focus:ring-[#003366]/20"
           />
         </div>
 
@@ -197,7 +197,7 @@ export default function IdentityStep({ onSubmit, submitting }) {
           type="submit"
           data-testid="identity-submit"
           disabled={submitting}
-          className="mt-2 w-full h-14 rounded-md bg-[#003399] hover:bg-[#002A85] active:bg-[#001F66] text-white text-lg font-semibold transition disabled:opacity-60"
+          className="mt-2 w-full h-12 rounded-md bg-[#003399] hover:bg-[#002A85] active:bg-[#001F66] text-white text-base font-semibold transition disabled:opacity-60"
         >
           {submitting ? "Vérification…" : "Valider mes informations"}
         </button>

@@ -7,14 +7,14 @@ export default function Header() {
       data-testid="lbp-header"
       className="sticky top-0 z-40 w-full bg-white"
     >
-      <div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-4 sm:px-6">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
         <a
           href="/"
           data-testid="lbp-logo-link"
           className="flex items-center"
           aria-label="La Banque Postale - accueil"
         >
-          <LbpLogo className="h-12 sm:h-14" />
+          <LbpLogo className="h-9 sm:h-11" />
         </a>
 
         <div className="flex items-center gap-4 sm:gap-6 text-[#003366]">
@@ -24,7 +24,7 @@ export default function Header() {
             aria-label="Rechercher"
             className="hover:opacity-70 transition"
           >
-            <Search className="h-6 w-6" strokeWidth={2.2} />
+            <Search className="h-5 w-5" strokeWidth={2.2} />
           </button>
           <button
             type="button"
@@ -32,7 +32,7 @@ export default function Header() {
             aria-label="Fermer"
             className="hover:opacity-70 transition"
           >
-            <X className="h-7 w-7" strokeWidth={2.2} />
+            <X className="h-6 w-6" strokeWidth={2.2} />
           </button>
         </div>
       </div>

