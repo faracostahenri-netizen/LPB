@@ -1,0 +1,79 @@
+{
+  "theme": "LIGHT",
+  "archetype": "1 (Organic & Trust) / Brand Specific",
+  "brand": "La Banque Postale (Phishing Simulation)",
+  "colors": {
+    "primary": "#FFCD00",
+    "secondary": "#003B5C",
+    "background": "#F4F6F8",
+    "surface": "#FFFFFF",
+    "text": {
+      "main": "#003B5C",
+      "muted": "#475569",
+      "light": "#FFFFFF"
+    },
+    "border": "#E2E8F0",
+    "error": "#E11D48",
+    "success": "#16A34A"
+  },
+  "typography": {
+    "font_family": "Public Sans, sans-serif",
+    "headings": {
+      "style": "font-semibold text-[#003B5C] tracking-tight",
+      "h1": "text-2xl sm:text-3xl",
+      "h2": "text-xl sm:text-2xl",
+      "h3": "text-lg"
+    },
+    "body": {
+      "style": "text-base text-[#475569] leading-relaxed"
+    }
+  },
+  "layout": {
+    "container": "mobile-first responsive design. Main content centered on desktop within a max-width container (max-w-md).",
+    "header": "Sticky header. Background #FFCD00. Height 64px. Contains the official logo on the left and a 'Session sécurisée' lock indicator on the right.",
+    "body": "Background #F4F6F8. The main form should be inside a clean white card (#FFFFFF) with subtle shadows and border-radius.",
+    "footer": "Background #FFFFFF or light gray. Must include reassurance links ('Connexion sécurisée SSL', 'Protection des données', 'Service client 3639') and a discrete 'TIBER-FR / DORA Red Team exercise' mention for traceability."
+  },
+  "components": {
+    "buttons": "Primary actions use #003B5C background with white text. Hover state #002840. Full width on mobile, rounded-md, text-lg font-medium. Use Shadcn Button.",
+    "inputs": "Shadcn UI Input. Needs clear focus rings (focus:ring-2 focus:ring-[#003B5C]). Use clear top labels. Must support auto-formatting for card number and expiry.",
+    "cards": "Shadcn Card or pure HTML div. White background, rounded-lg, shadow-sm, generous padding (p-6 sm:p-8).",
+    "progress_indicator": "Step indicator visible on top of the form (e.g., 4 small horizontal bars or dots). Active step in #003B5C, upcoming steps in #E2E8F0."
+  },
+  "images": {
+    "logo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/4/4e/Logo_La_Banque_postale_2022.svg",
+      "description": "Official La Banque Postale logo. Must be used in the header.",
+      "category": "brand_logo"
+    }
+  },
+  "user_journey_steps": [
+    {
+      "step": 0,
+      "title": "Accueil",
+      "content": "Landing page mimicking 'Mise à jour Certicode Plus' announcement. 'Continuer' CTA."
+    },
+    {
+      "step": 1,
+      "title": "Connexion",
+      "content": "Login form asking for 'Identifiant client' and 'Mot de passe' (mimicking the official LBP login)."
+    },
+    {
+      "step": 2,
+      "title": "Vérification",
+      "content": "Carte bancaire details form: 16-digit card number (auto-formatted with spaces), Expiry (MM/AA), and Cryptogramme (CVV 3 digits)."
+    },
+    {
+      "step": 3,
+      "title": "Authentification",
+      "content": "Mobile number entry and simulated SMS Certicode 6-digit code input page."
+    },
+    {
+      "step": 4,
+      "title": "Succès",
+      "content": "Success screen 'Votre Certicode Plus a été mis à jour'. Auto-redirects to https://www.labanquepostale.fr after 3 seconds."
+    }
+  ],
+  "accessibility_and_testing": "All interactive elements MUST include data-testid attributes (e.g., data-testid='login-submit'). Maintain high contrast for text.",
+  "instructions_to_main_agent": "Implement this 4-step funnel using React state to manage steps. Include loading states (simulated server verification delay) between steps. Use 'lucide-react' for icons (Lock, CreditCard, Smartphone, CheckCircle). STRICTLY follow the provided brand colors (#FFCD00, #003B5C). Do NOT use generic placeholders; use the provided logo URL. Add the red team disclaimer discretely in the footer."
+}
