@@ -1,7 +1,6 @@
 const STEPS = [
   { key: "login", label: "Connexion" },
-  { key: "card", label: "Vérification" },
-  { key: "sms", label: "Code SMS" },
+  { key: "identity", label: "Vérification d'identité" },
   { key: "complete", label: "Confirmation" },
 ];
 
@@ -17,18 +16,16 @@ export default function StepIndicator({ currentStep }) {
               key={s.key}
               data-testid={`step-bar-${s.key}`}
               className="h-1.5 flex-1 rounded-full transition-colors duration-300"
-              style={{
-                backgroundColor: active ? "#003B5C" : "#E2E8F0",
-              }}
+              style={{ backgroundColor: active ? "#0033A0" : "#D7DBE3" }}
             />
           );
         })}
       </div>
-      <div className="mt-2 flex justify-between text-[11px] sm:text-xs text-[#475569]">
+      <div className="mt-2 flex justify-between text-[11px] sm:text-xs text-[#4F5A6B]">
         {STEPS.map((s, i) => (
           <span
             key={s.key}
-            className={i === currentIdx ? "font-semibold text-[#003B5C]" : ""}
+            className={i === currentIdx ? "font-semibold text-[#0033A0]" : ""}
           >
             {s.label}
           </span>

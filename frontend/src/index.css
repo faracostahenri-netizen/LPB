@@ -3,13 +3,23 @@
 @tailwind utilities;
 
 :root {
+    /* Official La Banque Postale customer portal (voscomptesenligne) colors */
+    --lbp-primary: #0033A0;
+    --lbp-primary-hover: #002378;
+    --lbp-primary-active: #001A5C;
     --lbp-yellow: #FFCD00;
-    --lbp-yellow-dark: #E6B900;
-    --lbp-blue: #003B5C;
-    --lbp-blue-dark: #002A43;
-    --lbp-bg: #F4F6F8;
-    --lbp-border: #E2E8F0;
-    --lbp-muted: #475569;
+    --lbp-bg: #FFFFFF;
+    --lbp-surface: #FFFFFF;
+    --lbp-surface-alt: #F7F8FA;
+    --lbp-border: #D7DBE3;
+    --lbp-border-strong: #0033A0;
+    --lbp-text: #0033A0;
+    --lbp-text-soft: #4F5A6B;
+    --lbp-text-muted: #7A8294;
+    --lbp-keypad-bg: #E8F1FB;
+    --lbp-keypad-border: #B6CDEC;
+    --lbp-success: #2E7D32;
+    --lbp-error: #C8102E;
 }
 
 html, body {
@@ -20,7 +30,7 @@ html, body {
         Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    color: var(--lbp-blue);
+    color: var(--lbp-text);
 }
 
 code {
@@ -30,25 +40,25 @@ code {
 
 @layer base {
     :root {
-        --background: 210 25% 97%;
-        --foreground: 205 100% 18%;
+        --background: 0 0% 100%;
+        --foreground: 218 100% 31%;
         --card: 0 0% 100%;
-        --card-foreground: 205 100% 18%;
+        --card-foreground: 218 100% 31%;
         --popover: 0 0% 100%;
-        --popover-foreground: 205 100% 18%;
-        --primary: 205 100% 18%;
+        --popover-foreground: 218 100% 31%;
+        --primary: 218 100% 31%;
         --primary-foreground: 0 0% 100%;
         --secondary: 48 100% 50%;
-        --secondary-foreground: 205 100% 18%;
-        --muted: 210 16% 93%;
-        --muted-foreground: 215 16% 40%;
-        --accent: 48 100% 50%;
-        --accent-foreground: 205 100% 18%;
-        --destructive: 348 83% 47%;
+        --secondary-foreground: 218 100% 31%;
+        --muted: 213 17% 96%;
+        --muted-foreground: 218 14% 42%;
+        --accent: 213 80% 95%;
+        --accent-foreground: 218 100% 31%;
+        --destructive: 350 86% 42%;
         --destructive-foreground: 0 0% 100%;
-        --border: 210 16% 90%;
-        --input: 210 16% 90%;
-        --ring: 205 100% 18%;
+        --border: 218 16% 87%;
+        --input: 218 16% 87%;
+        --ring: 218 100% 31%;
         --radius: 0.5rem;
     }
 }
@@ -62,22 +72,21 @@ code {
     }
 }
 
-/* Custom helpers */
+/* LBP-specific helpers */
 .lbp-shadow {
-    box-shadow: 0 1px 3px rgba(0, 59, 92, 0.08),
-        0 1px 2px rgba(0, 59, 92, 0.04);
+    box-shadow: 0 1px 2px rgba(0, 51, 160, 0.08);
 }
 .lbp-shadow-lg {
-    box-shadow: 0 10px 28px rgba(0, 59, 92, 0.12),
-        0 2px 6px rgba(0, 59, 92, 0.06);
+    box-shadow: 0 8px 24px rgba(0, 51, 160, 0.10),
+        0 2px 6px rgba(0, 51, 160, 0.05);
 }
 
-.step-pulse {
-    animation: stepPulse 1.4s ease-in-out infinite;
-}
-@keyframes stepPulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+.lbp-input-underline {
+    display: inline-block;
+    width: 0.85em;
+    text-align: center;
+    border-bottom: 2px solid var(--lbp-border-strong);
+    margin: 0 0.05em;
 }
 
 .fade-in {
@@ -88,9 +97,44 @@ code {
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* Hide native number-input spinners */
+.slide-down {
+    animation: slideDown 0.35s ease-out;
+}
+@keyframes slideDown {
+    from { opacity: 0; max-height: 0; }
+    to { opacity: 1; max-height: 800px; }
+}
+
 input[type="tel"]::-webkit-outer-spin-button,
 input[type="tel"]::-webkit-inner-spin-button {
     -webkit-appearance: none;
     margin: 0;
+}
+
+/* Custom switch (memorize id) */
+.lbp-switch {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    background: #D1D5DB;
+    border-radius: 999px;
+    transition: background 0.2s ease;
+    cursor: pointer;
+}
+.lbp-switch.on {
+    background: var(--lbp-primary);
+}
+.lbp-switch-knob {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    background: #fff;
+    border-radius: 999px;
+    transition: transform 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.lbp-switch.on .lbp-switch-knob {
+    transform: translateX(20px);
 }

