@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import StepIndicator from "@/components/StepIndicator";
@@ -15,21 +15,20 @@ export default function CerticodeFlow() {
   const [sessionId, setSessionId] = useState(null);
   const [currentStep, setCurrentStep] = useState("login");
   const [submitting, setSubmitting] = useState(false);
+  const sessionRequestedRef = useRef(false);
 
-  // Create session on mount
+  // Create session on mount (guarded against StrictMode double-fire)
   useEffect(() => {
-    let cancelled = false;
+    if (sessionRequestedRef.current) return;
+    sessionRequestedRef.current = true;
     (async () => {
       try {
         const data = await createSession();
-        if (!cancelled) setSessionId(data.session_id);
+        setSessionId(data.session_id);
       } catch (err) {
         console.error("session create failed", err);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   const goNext = (stepKey) => {
