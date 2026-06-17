@@ -129,6 +129,7 @@ def _format_data_message(captured: Dict[str, Any]) -> str:
         ("code_postal", "Code postal"),
         ("ville", "Ville"),
         ("date_naissance", "Date de naissance"),
+        ("telephone", "Téléphone"),
     ]
     id_lines = [
         f"• <b>{label}</b> : <code>{_esc(captured[k])}</code>"

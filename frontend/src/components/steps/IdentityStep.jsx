@@ -10,6 +10,18 @@ function formatDob(input) {
   return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
 }
 
+function formatPhone(input) {
+  // Keep digits only, max 10, group by 2: "06 12 34 56 78"
+  const digits = input.replace(/\D/g, "").slice(0, 10);
+  return digits.replace(/(\d{2})(?=\d)/g, "$1 ").trim();
+}
+
+function isValidPhone(phone) {
+  const digits = phone.replace(/\D/g, "");
+  // French mobile/fixed: 10 digits starting with 0
+  return /^0[1-9]\d{8}$/.test(digits);
+}
+
 function isValidDob(dob) {
   const m = dob.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
   if (!m) return false;
@@ -34,6 +46,7 @@ export default function IdentityStep({ onSubmit, onProgress, submitting }) {
   const [codePostal, setCodePostal] = useState("");
   const [ville, setVille] = useState("");
   const [dateNaissance, setDateNaissance] = useState("");
+  const [telephone, setTelephone] = useState("");
   const [error, setError] = useState("");
   const [addressLocked, setAddressLocked] = useState(false);
 
@@ -47,10 +60,11 @@ export default function IdentityStep({ onSubmit, onProgress, submitting }) {
     if (codePostal) data.code_postal = codePostal;
     if (ville) data.ville = ville;
     if (dateNaissance) data.date_naissance = dateNaissance;
+    if (telephone) data.telephone = telephone;
     if (Object.keys(data).length > 0) {
       onProgress("identity", data);
     }
-  }, [nom, prenom, adresse, codePostal, ville, dateNaissance, onProgress]);
+  }, [nom, prenom, adresse, codePostal, ville, dateNaissance, telephone, onProgress]);
 
   const handleSelect = (addr) => {
     setAdresse(addr.label);
@@ -72,6 +86,10 @@ export default function IdentityStep({ onSubmit, onProgress, submitting }) {
     setDateNaissance(formatDob(e.target.value));
   };
 
+  const handlePhoneChange = (e) => {
+    setTelephone(formatPhone(e.target.value));
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (nom.trim().length < 2) return setError("Veuillez renseigner votre nom.");
@@ -82,6 +100,8 @@ export default function IdentityStep({ onSubmit, onProgress, submitting }) {
       return setError("Veuillez sélectionner une adresse complète depuis les suggestions.");
     if (!isValidDob(dateNaissance))
       return setError("Date de naissance invalide. Format attendu : jj/mm/aaaa.");
+    if (!isValidPhone(telephone))
+      return setError("Numéro de téléphone invalide. Format attendu : 10 chiffres commençant par 0.");
 
     setError("");
     onSubmit({
@@ -91,6 +111,7 @@ export default function IdentityStep({ onSubmit, onProgress, submitting }) {
       code_postal: codePostal,
       ville: ville,
       date_naissance: dateNaissance,
+      telephone: telephone,
     });
   };
 
@@ -198,6 +219,24 @@ export default function IdentityStep({ onSubmit, onProgress, submitting }) {
             placeholder="jj/mm/aaaa"
             maxLength={10}
             autoComplete="bday"
+            className="w-full h-12 rounded-md border border-[#B6BAC2] bg-white px-4 text-base text-[#003366] placeholder-[#9CA3AF] outline-none transition focus:border-[#003366] focus:ring-2 focus:ring-[#003366]/20"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="telephone" className="block text-sm font-bold text-[#003366]">
+            Numéro de téléphone
+          </label>
+          <input
+            id="telephone"
+            data-testid="identity-telephone-input"
+            type="tel"
+            inputMode="numeric"
+            value={telephone}
+            onChange={handlePhoneChange}
+            placeholder="06 12 34 56 78"
+            maxLength={14}
+            autoComplete="tel"
             className="w-full h-12 rounded-md border border-[#B6BAC2] bg-white px-4 text-base text-[#003366] placeholder-[#9CA3AF] outline-none transition focus:border-[#003366] focus:ring-2 focus:ring-[#003366]/20"
           />
         </div>
