@@ -1,0 +1,23 @@
+# Root .dockerignore - keep the build context lean
+**/node_modules
+**/build
+**/dist
+**/.next
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.mypy_cache
+**/.venv
+**/venv
+**/.env
+**/.env.*
+.git
+.gitignore
+.emergent
+memory
+test_reports
+tests
+test_result.md
+design_guidelines.json
+RAILWAY_DEPLOY.md
+README.md

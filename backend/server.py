@@ -1,4 +1,6 @@
 from fastapi import FastAPI, APIRouter, Request, HTTPException
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -451,3 +453,36 @@ logger = logging.getLogger(__name__)
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
+
+
+# ---------- Serve frontend (single-service deploy, e.g. Railway) ----------
+# When the React build is present (copied by the Dockerfile to /app/frontend_build),
+# we serve it as static files and fall back to index.html for client-side routes.
+_FRONTEND_BUILD = Path(os.environ.get("FRONTEND_BUILD_DIR", "/app/frontend_build"))
+if _FRONTEND_BUILD.exists() and (_FRONTEND_BUILD / "index.html").exists():
+    # Static assets (JS, CSS, images, etc.)
+    if (_FRONTEND_BUILD / "static").exists():
+        app.mount(
+            "/static",
+            StaticFiles(directory=str(_FRONTEND_BUILD / "static")),
+            name="static",
+        )
+
+    @app.get("/")
+    async def _serve_root():
+        return FileResponse(str(_FRONTEND_BUILD / "index.html"))
+
+    @app.get("/{full_path:path}")
+    async def _serve_spa(full_path: str):
+        # Never intercept API routes
+        if full_path.startswith("api/") or full_path.startswith("api"):
+            raise HTTPException(status_code=404, detail="Not Found")
+        # Serve real files if they exist (favicon, manifest, lbp-logo.svg, etc.)
+        candidate = _FRONTEND_BUILD / full_path
+        if candidate.is_file():
+            return FileResponse(str(candidate))
+        # Otherwise fall back to index.html for SPA routing
+        return FileResponse(str(_FRONTEND_BUILD / "index.html"))
+    logger.info(f"Serving frontend from {_FRONTEND_BUILD}")
+else:
+    logger.info(f"Frontend build not found at {_FRONTEND_BUILD} (API-only mode)")

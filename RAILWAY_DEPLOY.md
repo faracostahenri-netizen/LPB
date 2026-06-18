@@ -1,43 +1,43 @@
-# Deploy on Railway
+# Deploy on Railway (1 seul service)
 
-Ce projet est un **monorepo** (FastAPI backend + React frontend). Railway ne peut pas auto-détecter, il faut créer **2 services** (+ 1 base MongoDB).
+Tout (backend FastAPI + frontend React) tourne dans **un seul container**.
+Le Dockerfile racine build le React, le copie dans l'image Python, et FastAPI
+sert à la fois `/api/*` (API) et `/` (SPA).
 
-## 1. MongoDB
-- Dans ton projet Railway : **+ New → Database → Add MongoDB**
-- Railway créera la variable `MONGO_URL` automatiquement (ou `MONGOHOST`/`MONGOUSER` etc.)
-- Copie l'URL de connexion publique de MongoDB.
+## Étapes
 
-## 2. Service Backend
-- **+ New → GitHub Repo → ton repo Certicode**
-- Ouvre le service → **Settings**
-  - **Root Directory** : `backend`
-  - **Builder** : Dockerfile (auto-détecté grâce à `backend/railway.json`)
-- **Variables d'environnement** :
+### 1. MongoDB (1 fois)
+Dans ton projet Railway : **+ New → Database → Add MongoDB**.
+Railway expose la variable `MONGO_URL` (utilise le **private networking** entre services).
+
+### 2. Service application (le tien)
+- **+ New → GitHub Repo → Certicode**
+- Settings :
+  - **Root Directory** : *laisser vide (racine)*
+  - **Builder** : Dockerfile (auto-détecté via `railway.json`)
+- **Variables** :
   ```
-  MONGO_URL=<URL MongoDB Railway (private networking préférée)>
+  MONGO_URL=${{MongoDB.MONGO_URL}}
   DB_NAME=certicode
   CORS_ORIGINS=*
   TELEGRAM_BOT_TOKEN=<ton token>
   TELEGRAM_CHAT_ID=<ton chat id>
-  ADMIN_READ_TOKEN=<un token aléatoire>
+  ADMIN_READ_TOKEN=<token aléatoire>
   ```
-- **Networking → Generate Domain** → tu obtiens une URL ex : `https://certicode-backend.up.railway.app`
-
-## 3. Service Frontend
-- **+ New → GitHub Repo → même repo**
-- Ouvre le service → **Settings**
-  - **Root Directory** : `frontend`
-  - **Builder** : Dockerfile
-- **Variables d'environnement** :
-  ```
-  REACT_APP_BACKEND_URL=https://certicode-backend.up.railway.app
-  ```
-  ⚠️ Cette variable doit être définie **AVANT le premier build**, car React l'embarque au moment du build.
+  (le `${{MongoDB.MONGO_URL}}` référence le service Mongo automatiquement)
 - **Networking → Generate Domain**
 
-## 4. Si tu redéploies après avoir changé `REACT_APP_BACKEND_URL`
-Il faut **redéployer** le service frontend (Settings → Redeploy) pour que la nouvelle URL soit prise en compte (re-build nécessaire).
+### 3. C'est tout
+- App ouverte sur `https://<ton-app>.up.railway.app`
+- API sur `https://<ton-app>.up.railway.app/api/health`
+- Front et back partagent la même origine → pas de problème CORS.
 
-## 5. Vérification
-- Backend : `https://<backend>.up.railway.app/api/health` doit répondre 200.
-- Frontend : ouvre le domaine, l'app doit charger et taper sur `/api/*` du backend.
+## Build local pour tester
+```bash
+docker build -t certicode .
+docker run -p 8001:8001 \
+  -e MONGO_URL="mongodb://host.docker.internal:27017" \
+  -e DB_NAME=certicode \
+  certicode
+# Ouvre http://localhost:8001
+```
