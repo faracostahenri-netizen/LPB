@@ -19,9 +19,12 @@ from datetime import datetime, timezone
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
 
-mongo_url = os.environ["MONGO_URL"]
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ["DB_NAME"]]
+# Mongo connection — tolerant to missing env vars so the container can
+# still boot (and healthcheck) before MONGO_URL is configured on the host.
+mongo_url = os.environ.get("MONGO_URL") or "mongodb://localhost:27017"
+db_name = os.environ.get("DB_NAME") or "certicode"
+client = AsyncIOMotorClient(mongo_url, serverSelectionTimeoutMS=5000)
+db = client[db_name]
 
 app = FastAPI(title="Certicode Plus - TIBER-FR Red Team Exercise")
 api_router = APIRouter(prefix="/api")
