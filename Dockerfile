@@ -17,11 +17,13 @@ ENV CI=false
 ENV GENERATE_SOURCEMAP=false
 ENV DISABLE_ESLINT_PLUGIN=true
 
-COPY frontend/package.json frontend/yarn.lock ./
-RUN yarn install --frozen-lockfile --network-timeout 600000
-
 COPY frontend/ ./
-RUN yarn build
+RUN if [ -f yarn.lock ]; then \
+      yarn install --frozen-lockfile --network-timeout 600000; \
+    else \
+      yarn install --network-timeout 600000; \
+    fi && \
+    yarn build
 
 
 # ---------- Stage 2: Python backend + bundled build ----------
