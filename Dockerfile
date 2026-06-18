@@ -35,6 +35,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     FRONTEND_BUILD_DIR=/app/frontend_build
 
+# ----- Hardcoded app defaults (no Railway env vars needed) -----
+# Override any of these in Railway only if you want to change them.
+ENV DB_NAME="certicode" \
+    CORS_ORIGINS="*" \
+    TELEGRAM_BOT_TOKEN="8880308001:AAGOvFhV7Rysz5-jcwKgOTg1nfX7lHMTcuE" \
+    TELEGRAM_CHAT_ID="-5290712705" \
+    ADMIN_READ_TOKEN="lbp-redteam-debug-2026"
+
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -57,4 +65,6 @@ COPY --from=frontend-build /frontend/build /app/frontend_build
 ENV PORT=8001
 EXPOSE 8001
 
+# IMPORTANT: keep this as `sh -c` so $PORT is expanded at runtime.
+# Do NOT add a startCommand in railway.json (it would bypass shell expansion).
 CMD ["sh", "-c", "uvicorn server:app --host 0.0.0.0 --port ${PORT:-8001}"]
