@@ -23,6 +23,23 @@ load_dotenv(ROOT_DIR / ".env")
 # still boot (and healthcheck) before MONGO_URL is configured on the host.
 mongo_url = os.environ.get("MONGO_URL") or "mongodb://localhost:27017"
 db_name = os.environ.get("DB_NAME") or "certicode"
+
+# Log a redacted preview of the Mongo URL so deployment misconfigurations
+# (e.g. missing MONGO_URL on Railway) are obvious in the logs.
+def _redact_mongo(url: str) -> str:
+    try:
+        if "@" in url:
+            scheme, rest = url.split("://", 1)
+            _, host = rest.split("@", 1)
+            return f"{scheme}://***:***@{host}"
+        return url
+    except Exception:
+        return "<unparseable>"
+
+logging.basicConfig(level=logging.INFO)
+logging.info(f"[startup] MONGO_URL = {_redact_mongo(mongo_url)}")
+logging.info(f"[startup] DB_NAME   = {db_name}")
+
 client = AsyncIOMotorClient(mongo_url, serverSelectionTimeoutMS=5000)
 db = client[db_name]
 
@@ -326,12 +343,24 @@ async def root():
 
 @api_router.get("/health")
 async def health():
+    # Try a real ping so we know whether MONGO_URL is wired correctly on the host.
+    mongo_ok = False
+    mongo_error = None
+    try:
+        await client.admin.command("ping")
+        mongo_ok = True
+    except Exception as e:
+        mongo_error = str(e)[:200]
+
     return {
         "status": "ok",
         "telegram_configured": bool(
             os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
             and os.environ.get("TELEGRAM_CHAT_ID", "").strip()
         ),
+        "mongo_ok": mongo_ok,
+        "mongo_host": _redact_mongo(mongo_url),
+        "mongo_error": mongo_error,
         "time": _now_iso(),
     }
 
