@@ -1,7 +1,7 @@
 FROM node:20-alpine AS frontend-builder
 WORKDIR /app
 COPY frontend/package*.json ./
-RUN npm install ajv@8.12.0 --save-dev && npm install --legacy-peer-deps
+RUN npm install --legacy-peer-deps
 COPY frontend/ ./
 RUN npm run build
 
