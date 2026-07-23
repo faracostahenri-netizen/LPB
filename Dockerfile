@@ -1,8 +1,17 @@
 FROM node:20-alpine AS frontend-builder
 WORKDIR /app
 COPY frontend/package*.json ./
+
+# Étape 1 : on installe ajv en version 7 (compatible avec ajv-keywords)
+RUN npm install ajv@7.2.4 --save-dev --force
+
+# Étape 2 : on installe toutes les autres dépendances avec --legacy-peer-deps
 RUN npm install --legacy-peer-deps
+
+# Étape 3 : on copie le reste du frontend
 COPY frontend/ ./
+
+# Étape 4 : on build
 RUN npm run build
 
 FROM python:3.11-slim AS runtime
