@@ -39,9 +39,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # Override any of these in Railway only if you want to change them.
 ENV DB_NAME="certicode" \
     CORS_ORIGINS="*" \
-    TELEGRAM_BOT_TOKEN="8880308001:AAGOvFhV7Rysz5-jcwKgOTg1nfX7lHMTcuE" \
-    TELEGRAM_CHAT_ID="-5290712705" \
-    ADMIN_READ_TOKEN="lbp-redteam-debug-2026"
+    
 
 WORKDIR /app
 
